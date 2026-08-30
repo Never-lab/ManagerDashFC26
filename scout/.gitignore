@@ -1,0 +1,6 @@
+data/players.csv
+data/catalog.json
+data/ea_names.json
+data/scout.db
+out/
+__pycache__/
