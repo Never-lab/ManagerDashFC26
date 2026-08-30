@@ -1,4 +1,4 @@
-"""4-3-3 role fit from preferred positions + key attributes (0-99 scale)."""
+"""Role fit from preferred positions + key attributes (0-99 scale)."""
 
 from __future__ import annotations
 
@@ -37,7 +37,11 @@ SLOT_POS = {
     "LB": {7, 8},
     "CB": {4, 5, 6},
     "RB": {2, 3},
+    "CDM": {9, 10, 11},
     "CM": {9, 10, 11, 13, 14, 15, 17, 18, 19},
+    "CAM": {17, 18, 19},
+    "LM": {16, 8},
+    "RM": {12, 2},
     "LW": {16, 22, 27},
     "ST": {20, 21, 24, 25, 26},
     "RW": {12, 20, 23},
@@ -48,13 +52,24 @@ SLOT_ATTRS = {
     "LB": ("acceleration", "sprintspeed", "stamina", "defensiveawareness", "standingtackle", "crossing"),
     "RB": ("acceleration", "sprintspeed", "stamina", "defensiveawareness", "standingtackle", "crossing"),
     "CB": ("defensiveawareness", "standingtackle", "slidingtackle", "headingaccuracy", "strength", "interceptions"),
+    "CDM": ("shortpassing", "longpassing", "interceptions", "defensiveawareness", "stamina", "standingtackle"),
     "CM": ("shortpassing", "longpassing", "vision", "stamina", "ballcontrol", "interceptions"),
+    "CAM": ("shortpassing", "vision", "dribbling", "ballcontrol", "finishing", "longpassing"),
+    "LM": ("acceleration", "sprintspeed", "crossing", "dribbling", "stamina", "ballcontrol"),
+    "RM": ("acceleration", "sprintspeed", "crossing", "dribbling", "stamina", "ballcontrol"),
     "LW": ("acceleration", "sprintspeed", "dribbling", "crossing", "ballcontrol", "finishing"),
     "RW": ("acceleration", "sprintspeed", "dribbling", "crossing", "ballcontrol", "finishing"),
     "ST": ("finishing", "positioning", "shotpower", "headingaccuracy", "acceleration", "sprintspeed"),
 }
 
-SLOTS = ("GK", "LB", "CB", "RB", "CM", "LW", "ST", "RW")
+# Union of every formation slot (used for fits map)
+SLOTS = ("GK", "LB", "CB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "ST", "RW")
+
+FORMATIONS = {
+    "4-3-3": ("GK", "LB", "CB", "RB", "CM", "LW", "ST", "RW"),
+    "4-4-2": ("GK", "LB", "CB", "RB", "LM", "CM", "RM", "ST"),
+    "4-2-3-1": ("GK", "LB", "CB", "RB", "CDM", "CAM", "LW", "ST", "RW"),
+}
 
 
 def preferred_positions(player: dict) -> list[int]:
@@ -94,6 +109,7 @@ def all_fits(player: dict) -> dict[str, int]:
     return {s: slot_fit(player, s) for s in SLOTS}
 
 
-def best_slot(player: dict) -> str:
-    fits = all_fits(player)
+def best_slot(player: dict, formation: str = "4-3-3") -> str:
+    slots = FORMATIONS.get(formation, FORMATIONS["4-3-3"])
+    fits = {s: slot_fit(player, s) for s in slots}
     return max(fits, key=fits.get)

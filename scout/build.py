@@ -9,7 +9,7 @@ from pathlib import Path
 
 from scout.career import latest_career_save, open_career
 from scout.names import load_catalog, load_ea_names
-from scout.score import POS, SLOTS, all_fits, best_slot, preferred_positions
+from scout.score import FORMATIONS, POS, SLOTS, all_fits, best_slot, preferred_positions
 from scout.snapshot import previous_mine, save_snapshot
 from scout.value import age_from_birth, current_value, fmt_eur
 
@@ -160,6 +160,7 @@ def rows_from_world(career, world, ea: dict[str, str], catalog: dict[str, dict])
         "season": user.get("seasoncount"),
         "league": leagues.get(team_league.get(club_id, -1), {}).get("leaguename") or "",
         "formation": "4-3-3",
+        "formations": list(FORMATIONS.keys()),
     }
     return players, meta
 

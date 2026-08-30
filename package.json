@@ -1,0 +1,16 @@
+{
+  "name": "manager-dash-fc26",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dashboard Node per career manager FC 26 (save locale read-only)",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
