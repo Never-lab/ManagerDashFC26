@@ -84,6 +84,41 @@ function paginate(rows, page, limit) {
   };
 }
 
+function cellValue(p, key) {
+  if (!key) return null;
+  if (key.startsWith("fit:")) {
+    const v = p.fits?.[key.slice(4)];
+    return v == null ? Number.NEGATIVE_INFINITY : Number(v);
+  }
+  const v = p[key];
+  if (v == null || v === "") return key === "name" || key === "club" || key === "league" || key === "pos" || key === "best" || key === "role" || key === "loan_txt" ? "" : Number.NEGATIVE_INFINITY;
+  if (typeof v === "number") return v;
+  if (typeof v === "boolean") return v ? 1 : 0;
+  const n = Number(v);
+  if (key === "wage" || key === "value" || key === "ovr" || key === "pot" || key === "age" || key.startsWith("d_")) {
+    return Number.isFinite(n) ? n : Number.NEGATIVE_INFINITY;
+  }
+  return String(v).toLowerCase();
+}
+
+function sortRows(rows, sort, dir, fallback) {
+  const key = sort || fallback;
+  const asc = String(dir || "desc").toLowerCase() === "asc";
+  const mult = asc ? 1 : -1;
+  return rows.slice().sort((a, b) => {
+    const av = cellValue(a, key);
+    const bv = cellValue(b, key);
+    let cmp = 0;
+    if (typeof av === "string" || typeof bv === "string") {
+      cmp = String(av).localeCompare(String(bv), "it", { sensitivity: "base" });
+    } else {
+      cmp = av === bv ? 0 : av < bv ? -1 : 1;
+    }
+    if (cmp !== 0) return cmp * mult;
+    return String(a.name || "").localeCompare(String(b.name || ""), "it");
+  });
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(ROOT, "public")));
@@ -131,8 +166,15 @@ app.get("/api/squad", async (req, res) => {
     const data = await ensureData(false, req.query.formation);
     const slots = data.formations?.[req.query.formation] || data.slots;
     let rows = data.players.filter((p) => p.mine);
-    rows.sort((a, b) => (b.value || 0) - (a.value || 0));
-    res.json({ meta: data.meta, slots, ...paginate(rows, req.query.page, req.query.limit || 100) });
+    rows = sortRows(rows, req.query.sort, req.query.dir, "value");
+    const dir = (req.query.dir || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+    res.json({
+      meta: data.meta,
+      slots,
+      sort: req.query.sort || "value",
+      dir,
+      ...paginate(rows, req.query.page, req.query.limit || 100),
+    });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }
@@ -160,14 +202,16 @@ app.get("/api/market", async (req, res) => {
     if (pot) rows = rows.filter((p) => (p.pot || 0) >= pot);
     if (q) rows = rows.filter((p) => `${p.name} ${p.club}`.toLowerCase().includes(q));
 
-    const score = slot ? (p) => p.fits?.[slot] || 0 : (p) => p.ovr || 0;
-    rows.sort((a, b) => (b.named - a.named) || score(b) - score(a));
+    const fallback = slot ? `fit:${slot}` : "ovr";
+    rows = sortRows(rows, req.query.sort, req.query.dir, fallback);
 
     const leagues = [...new Set(data.players.map((p) => p.league).filter(Boolean))].sort();
     res.json({
       meta: data.meta,
       slots,
       leagues,
+      sort: req.query.sort || fallback,
+      dir: (req.query.dir || "desc").toLowerCase() === "asc" ? "asc" : "desc",
       ...paginate(rows, req.query.page, req.query.limit || 50),
     });
   } catch (e) {
@@ -182,8 +226,16 @@ app.get("/api/growth", async (req, res) => {
     let rows = data.players.filter(
       (p) => p.mine && (p.d_ovr != null || p.d_value != null || p.d_pot != null)
     );
-    rows.sort((a, b) => Math.abs(b.d_value || 0) - Math.abs(a.d_value || 0));
-    res.json({ meta: data.meta, slots, ...paginate(rows, req.query.page, req.query.limit || 100) });
+    const sort = req.query.sort || "d_value";
+    const dir = req.query.dir || "desc";
+    rows = sortRows(rows, sort, dir, "d_value");
+    res.json({
+      meta: data.meta,
+      slots,
+      sort,
+      dir: dir.toLowerCase() === "asc" ? "asc" : "desc",
+      ...paginate(rows, req.query.page, req.query.limit || 100),
+    });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }

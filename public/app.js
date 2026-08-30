@@ -2,8 +2,12 @@ const state = {
   tab: "squad",
   formation: "4-3-3",
   pages: { squad: 1, market: 1, growth: 1 },
+  sort: {
+    squad: { key: "value", dir: "desc" },
+    market: { key: "ovr", dir: "desc" },
+    growth: { key: "d_value", dir: "desc" },
+  },
   slots: [],
-  loading: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -71,13 +75,33 @@ function fillSlots(slots) {
   if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
 }
 
-function tableHtml(rows, slots, extra) {
-  let h =
-    "<table><thead><tr><th>Nome</th><th>OVR</th><th>POT</th><th>Età</th><th>Valore</th><th>Δ val</th><th>Pos</th><th>Best</th><th>Club</th><th>Lega</th>";
+function th(label, key, tab) {
+  const s = state.sort[tab];
+  const on = s.key === key;
+  const mark = on ? (s.dir === "asc" ? " ▲" : " ▼") : "";
+  return `<th class="sortable${on ? " on" : ""}" data-sort="${esc(key)}" data-tab="${esc(
+    tab
+  )}" title="Ordina">${esc(label)}${mark}</th>`;
+}
+
+function tableHtml(tab, rows, slots, extraKeys) {
+  let h = "<table><thead><tr>";
+  h += th("Nome", "name", tab);
+  h += th("OVR", "ovr", tab);
+  h += th("POT", "pot", tab);
+  h += th("Età", "age", tab);
+  h += th("Valore", "value", tab);
+  h += th("Δ val", "d_value", tab);
+  h += th("Pos", "pos", tab);
+  h += th("Best", "best", tab);
+  h += th("Club", "club", tab);
+  h += th("Lega", "league", tab);
   (slots || []).forEach((s) => {
-    h += `<th>${esc(s)}</th>`;
+    h += th(s, `fit:${s}`, tab);
   });
-  if (extra?.head) h += extra.head;
+  (extraKeys || []).forEach(([label, key]) => {
+    h += th(label, key, tab);
+  });
   h += "</tr></thead><tbody>";
   rows.forEach((p) => {
     h += `<tr><td class="name">${esc(p.name)}</td><td>${nz(p.ovr)}</td><td>${nz(p.pot)}</td><td>${nz(
@@ -90,7 +114,23 @@ function tableHtml(rows, slots, extra) {
     (slots || []).forEach((s) => {
       h += `<td class="fit">${p.fits?.[s] ?? ""}</td>`;
     });
-    if (extra?.cell) h += extra.cell(p);
+    if (extraKeys) {
+      for (const [label, key] of extraKeys) {
+        if (key === "loan_txt") {
+          h += `<td class="loan ${p.loan_in ? "in" : p.loan_out ? "out" : ""}">${esc(
+            p.loan_txt || ""
+          )}${p.loan_buy ? ' <span class="pill">L2B</span>' : ""}</td>`;
+        } else if (key === "d_ovr" || key === "d_pot") {
+          h += `<td class="${dClass(p[key])}">${delta(p[key])}</td>`;
+        } else if (key === "role") {
+          h += `<td>${esc(p.role)}</td>`;
+        } else if (key === "wage") {
+          h += `<td>${nz(p.wage)}</td>`;
+        } else {
+          h += `<td>${esc(p[key])}</td>`;
+        }
+      }
+    }
     h += "</tr>";
   });
   return h + "</tbody></table>";
@@ -104,24 +144,27 @@ function pagerHtml(tab, page, pages, total) {
   `;
 }
 
+function sortParams(tab) {
+  const s = state.sort[tab];
+  return { sort: s.key, dir: s.dir };
+}
+
 async function loadSquad() {
   const q = new URLSearchParams({
     formation: state.formation,
     page: String(state.pages.squad),
     limit: "80",
+    ...sortParams("squad"),
   });
   const data = await api(`/api/squad?${q}`);
   renderMeta(data.meta);
   fillSlots(data.slots);
-  $("squad-table").innerHTML = tableHtml(data.rows, data.slots, {
-    head: "<th>Prestito</th><th>ΔOVR</th><th>Ruolo</th><th>Stipendio</th>",
-    cell: (p) =>
-      `<td class="loan ${p.loan_in ? "in" : p.loan_out ? "out" : ""}">${esc(
-        p.loan_txt || ""
-      )}${p.loan_buy ? ' <span class="pill">L2B</span>' : ""}</td><td class="${dClass(
-        p.d_ovr
-      )}">${delta(p.d_ovr)}</td><td>${esc(p.role)}</td><td>${nz(p.wage)}</td>`,
-  });
+  $("squad-table").innerHTML = tableHtml("squad", data.rows, data.slots, [
+    ["Prestito", "loan_txt"],
+    ["ΔOVR", "d_ovr"],
+    ["Ruolo", "role"],
+    ["Stipendio", "wage"],
+  ]);
   $("squad-pager").innerHTML = pagerHtml("squad", data.page, data.pages, data.total);
 }
 
@@ -138,6 +181,7 @@ async function loadMarket() {
     real: $("real").checked ? "1" : "0",
     women: $("women").checked ? "1" : "0",
     named: $("named").checked ? "1" : "0",
+    ...sortParams("market"),
   });
   const data = await api(`/api/market?${q}`);
   renderMeta(data.meta);
@@ -150,11 +194,9 @@ async function loadMarket() {
       data.leagues.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
     if ([...leagueSel.options].some((o) => o.value === cur)) leagueSel.value = cur;
   }
-  $("market-table").innerHTML = tableHtml(data.rows, data.slots, {
-    head: "<th>Prestito</th>",
-    cell: (p) =>
-      `<td class="loan ${p.loan_in ? "in" : p.loan_out ? "out" : ""}">${esc(p.loan_txt || "")}</td>`,
-  });
+  $("market-table").innerHTML = tableHtml("market", data.rows, data.slots, [
+    ["Prestito", "loan_txt"],
+  ]);
   $("market-pager").innerHTML = pagerHtml("market", data.page, data.pages, data.total);
 }
 
@@ -163,17 +205,15 @@ async function loadGrowth() {
     formation: state.formation,
     page: String(state.pages.growth),
     limit: "80",
+    ...sortParams("growth"),
   });
   const data = await api(`/api/growth?${q}`);
   renderMeta(data.meta);
   fillSlots(data.slots);
-  $("growth-table").innerHTML = tableHtml(data.rows, data.slots, {
-    head: "<th>ΔOVR</th><th>ΔPOT</th>",
-    cell: (p) =>
-      `<td class="${dClass(p.d_ovr)}">${delta(p.d_ovr)}</td><td class="${dClass(p.d_pot)}">${delta(
-        p.d_pot
-      )}</td>`,
-  });
+  $("growth-table").innerHTML = tableHtml("growth", data.rows, data.slots, [
+    ["ΔOVR", "d_ovr"],
+    ["ΔPOT", "d_pot"],
+  ]);
   $("growth-pager").innerHTML = pagerHtml("growth", data.page, data.pages, data.total);
 }
 
@@ -244,6 +284,9 @@ $("refresh").addEventListener("click", async () => {
   const el = $(id);
   const go = () => {
     state.pages.market = 1;
+    if (id === "slot" && $("slot").value) {
+      state.sort.market = { key: `fit:${$("slot").value}`, dir: "desc" };
+    }
     if (state.tab === "market") loadMarket().catch((e) => showError(e.message));
   };
   el.addEventListener("change", go);
@@ -251,6 +294,17 @@ $("refresh").addEventListener("click", async () => {
 });
 
 document.addEventListener("click", (ev) => {
+  const sortTh = ev.target.closest("th.sortable");
+  if (sortTh) {
+    const tab = sortTh.dataset.tab;
+    const key = sortTh.dataset.sort;
+    const cur = state.sort[tab];
+    if (cur.key === key) cur.dir = cur.dir === "asc" ? "desc" : "asc";
+    else state.sort[tab] = { key, dir: key === "name" || key === "club" || key === "league" || key === "pos" || key === "best" || key === "role" || key === "loan_txt" ? "asc" : "desc" };
+    state.pages[tab] = 1;
+    loadTab();
+    return;
+  }
   const btn = ev.target.closest(".pager button");
   if (!btn) return;
   const tab = btn.dataset.tab;

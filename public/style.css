@@ -167,6 +167,12 @@ th {
   font-weight: 700;
   z-index: 1;
 }
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+th.sortable:hover { color: var(--accent); }
+th.sortable.on { color: var(--accent); }
 tr:hover td { background: #182033; }
 .name { font-weight: 600; }
 .fit { color: #9eb6d4; }
