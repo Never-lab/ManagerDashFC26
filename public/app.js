@@ -7,7 +7,10 @@ const state = {
     market: { key: "ovr", dir: "desc" },
     growth: { key: "d_value", dir: "desc" },
   },
+  role: { squad: "", market: "" },
   slots: [],
+  allRoles: [],
+  roleLabels: {},
 };
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +33,11 @@ function delta(v) {
 function dClass(v) {
   if (v == null || v === 0) return "";
   return v > 0 ? "up" : "down";
+}
+
+function roleName(code) {
+  const full = state.roleLabels[code];
+  return full ? `${code} — ${full}` : code;
 }
 
 function showError(msg) {
@@ -65,14 +73,37 @@ function fillFormations(formations) {
   state.formation = sel.value;
 }
 
-function fillSlots(slots) {
-  state.slots = slots || [];
-  const sel = $("slot");
-  const cur = sel.value;
+function rememberRoles(data) {
+  if (data.all_roles?.length) state.allRoles = data.all_roles;
+  if (data.role_labels) state.roleLabels = data.role_labels;
+  if (data.slots) state.slots = data.slots;
+}
+
+function fillRoleSelect(selId, selected) {
+  const sel = $(selId);
+  const cur = selected ?? sel.value;
+  const roles = state.allRoles.length ? state.allRoles : state.slots;
   sel.innerHTML =
     '<option value="">tutti</option>' +
-    state.slots.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+    roles.map((s) => `<option value="${esc(s)}">${esc(roleName(s))}</option>`).join("");
   if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
+}
+
+function renderRoleChips(containerId, tab) {
+  const el = $(containerId);
+  if (!el) return;
+  const roles = state.allRoles.length ? state.allRoles : state.slots;
+  const active = state.role[tab] || "";
+  el.innerHTML =
+    `<button type="button" data-tab="${tab}" data-role="" class="${!active ? "on" : ""}">tutti</button>` +
+    roles
+      .map(
+        (r) =>
+          `<button type="button" data-tab="${tab}" data-role="${esc(r)}" class="${
+            active === r ? "on" : ""
+          }" title="${esc(state.roleLabels[r] || r)}">${esc(r)}</button>`
+      )
+      .join("");
 }
 
 function th(label, key, tab) {
@@ -84,7 +115,19 @@ function th(label, key, tab) {
   )}" title="Ordina">${esc(label)}${mark}</th>`;
 }
 
-function tableHtml(tab, rows, slots, extraKeys) {
+function rolesCell(p) {
+  const roles = p.roles?.length ? p.roles : p.pos ? [p.pos] : [];
+  return roles
+    .map(
+      (r, i) =>
+        `<span class="pill role${i === 0 ? "" : ""}" title="${esc(state.roleLabels[r] || r)}">${esc(
+          r
+        )}</span>`
+    )
+    .join("");
+}
+
+function tableHtml(tab, rows, slots, extraKeys, focusRole) {
   let h = "<table><thead><tr>";
   h += th("Nome", "name", tab);
   h += th("OVR", "ovr", tab);
@@ -92,7 +135,7 @@ function tableHtml(tab, rows, slots, extraKeys) {
   h += th("Età", "age", tab);
   h += th("Valore", "value", tab);
   h += th("Δ val", "d_value", tab);
-  h += th("Pos", "pos", tab);
+  h += th("Ruoli", "pos", tab);
   h += th("Best", "best", tab);
   h += th("Club", "club", tab);
   h += th("Lega", "league", tab);
@@ -108,14 +151,15 @@ function tableHtml(tab, rows, slots, extraKeys) {
       p.age
     )}</td><td>${esc(p.value_txt)}</td><td class="${dClass(p.d_value)}">${esc(
       p.d_value_txt || ""
-    )}</td><td><span class="pill">${esc(p.pos)}</span></td><td>${esc(p.best)}</td><td>${esc(
-      p.club
-    )}</td><td>${esc(p.league)}</td>`;
+    )}</td><td>${rolesCell(p)}</td><td>${esc(p.best)}</td><td>${esc(p.club)}</td><td>${esc(
+      p.league
+    )}</td>`;
     (slots || []).forEach((s) => {
-      h += `<td class="fit">${p.fits?.[s] ?? ""}</td>`;
+      const focus = focusRole && s === focusRole ? " focus" : "";
+      h += `<td class="fit${focus}">${p.fits?.[s] ?? ""}</td>`;
     });
     if (extraKeys) {
-      for (const [label, key] of extraKeys) {
+      for (const [, key] of extraKeys) {
         if (key === "loan_txt") {
           h += `<td class="loan ${p.loan_in ? "in" : p.loan_out ? "out" : ""}">${esc(
             p.loan_txt || ""
@@ -149,43 +193,74 @@ function sortParams(tab) {
   return { sort: s.key, dir: s.dir };
 }
 
+function setRole(tab, role) {
+  state.role[tab] = role || "";
+  state.pages[tab] = 1;
+  if (role) state.sort[tab] = { key: `fit:${role}`, dir: "desc" };
+  if (tab === "squad") $("squad-role").value = state.role.squad;
+  if (tab === "market") $("slot").value = state.role.market;
+  loadTab();
+}
+
 async function loadSquad() {
+  const role = state.role.squad || $("squad-role").value;
+  state.role.squad = role;
   const q = new URLSearchParams({
     formation: state.formation,
     page: String(state.pages.squad),
     limit: "80",
+    role,
+    natural: $("squad-natural").checked ? "1" : "0",
     ...sortParams("squad"),
   });
   const data = await api(`/api/squad?${q}`);
+  rememberRoles(data);
   renderMeta(data.meta);
-  fillSlots(data.slots);
-  $("squad-table").innerHTML = tableHtml("squad", data.rows, data.slots, [
-    ["Prestito", "loan_txt"],
-    ["ΔOVR", "d_ovr"],
-    ["Ruolo", "role"],
-    ["Stipendio", "wage"],
-  ]);
+  fillRoleSelect("squad-role", role);
+  fillRoleSelect("slot", state.role.market);
+  renderRoleChips("squad-roles", "squad");
+  $("squad-table").innerHTML = tableHtml(
+    "squad",
+    data.rows,
+    data.slots,
+    [
+      ["Prestito", "loan_txt"],
+      ["ΔOVR", "d_ovr"],
+      ["Ruolo rosa", "role"],
+      ["Stipendio", "wage"],
+    ],
+    role
+  );
   $("squad-pager").innerHTML = pagerHtml("squad", data.page, data.pages, data.total);
 }
 
 async function loadMarket() {
+  const role = state.role.market || $("slot").value;
+  state.role.market = role;
   const q = new URLSearchParams({
     formation: state.formation,
     page: String(state.pages.market),
     limit: "50",
-    slot: $("slot").value,
+    role,
+    slot: role,
     league: $("league").value,
     ovr: $("ovr").value || "0",
     pot: $("pot").value || "0",
+    fitMin: $("fitMin").value || "0",
     q: $("q").value,
+    natural: $("natural").checked ? "1" : "0",
+    primary: $("primary").checked ? "1" : "0",
     real: $("real").checked ? "1" : "0",
     women: $("women").checked ? "1" : "0",
     named: $("named").checked ? "1" : "0",
     ...sortParams("market"),
   });
   const data = await api(`/api/market?${q}`);
+  rememberRoles(data);
   renderMeta(data.meta);
-  fillSlots(data.slots);
+  fillRoleSelect("slot", role);
+  fillRoleSelect("squad-role", state.role.squad);
+  renderRoleChips("market-roles", "market");
   const leagueSel = $("league");
   const cur = leagueSel.value;
   if (data.leagues?.length && leagueSel.options.length <= 1) {
@@ -194,9 +269,13 @@ async function loadMarket() {
       data.leagues.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
     if ([...leagueSel.options].some((o) => o.value === cur)) leagueSel.value = cur;
   }
-  $("market-table").innerHTML = tableHtml("market", data.rows, data.slots, [
-    ["Prestito", "loan_txt"],
-  ]);
+  $("market-table").innerHTML = tableHtml(
+    "market",
+    data.rows,
+    data.slots,
+    [["Prestito", "loan_txt"]],
+    role
+  );
   $("market-pager").innerHTML = pagerHtml("market", data.page, data.pages, data.total);
 }
 
@@ -208,8 +287,8 @@ async function loadGrowth() {
     ...sortParams("growth"),
   });
   const data = await api(`/api/growth?${q}`);
+  rememberRoles(data);
   renderMeta(data.meta);
-  fillSlots(data.slots);
   $("growth-table").innerHTML = tableHtml("growth", data.rows, data.slots, [
     ["ΔOVR", "d_ovr"],
     ["ΔPOT", "d_pot"],
@@ -231,8 +310,10 @@ async function loadTab() {
 async function boot() {
   try {
     const meta = await api(`/api/meta?formation=${encodeURIComponent(state.formation)}`);
+    rememberRoles(meta);
     fillFormations(meta.formations);
-    fillSlots(meta.slots);
+    fillRoleSelect("slot", state.role.market);
+    fillRoleSelect("squad-role", state.role.squad);
     renderMeta(meta.meta);
     await loadTab();
   } catch (e) {
@@ -280,27 +361,44 @@ $("refresh").addEventListener("click", async () => {
   }
 });
 
-["slot", "league", "ovr", "pot", "q", "real", "women", "named"].forEach((id) => {
-  const el = $(id);
-  const go = () => {
-    state.pages.market = 1;
-    if (id === "slot" && $("slot").value) {
-      state.sort.market = { key: `fit:${$("slot").value}`, dir: "desc" };
-    }
-    if (state.tab === "market") loadMarket().catch((e) => showError(e.message));
-  };
-  el.addEventListener("change", go);
-  el.addEventListener("input", go);
+$("squad-role").addEventListener("change", () => setRole("squad", $("squad-role").value));
+$("squad-natural").addEventListener("change", () => {
+  state.pages.squad = 1;
+  loadSquad().catch((e) => showError(e.message));
 });
 
+["slot", "league", "ovr", "pot", "fitMin", "q", "real", "women", "named", "natural", "primary"].forEach(
+  (id) => {
+    const el = $(id);
+    const go = () => {
+      if (id === "slot") {
+        setRole("market", $("slot").value);
+        return;
+      }
+      state.pages.market = 1;
+      if (state.tab === "market") loadMarket().catch((e) => showError(e.message));
+    };
+    el.addEventListener("change", go);
+    el.addEventListener("input", go);
+  }
+);
+
 document.addEventListener("click", (ev) => {
+  const chip = ev.target.closest(".role-chips button");
+  if (chip) {
+    setRole(chip.dataset.tab, chip.dataset.role || "");
+    return;
+  }
   const sortTh = ev.target.closest("th.sortable");
   if (sortTh) {
     const tab = sortTh.dataset.tab;
     const key = sortTh.dataset.sort;
     const cur = state.sort[tab];
     if (cur.key === key) cur.dir = cur.dir === "asc" ? "desc" : "asc";
-    else state.sort[tab] = { key, dir: key === "name" || key === "club" || key === "league" || key === "pos" || key === "best" || key === "role" || key === "loan_txt" ? "asc" : "desc" };
+    else {
+      const textKeys = new Set(["name", "club", "league", "pos", "best", "role", "loan_txt"]);
+      state.sort[tab] = { key, dir: textKeys.has(key) ? "asc" : "desc" };
+    }
     state.pages[tab] = 1;
     loadTab();
     return;

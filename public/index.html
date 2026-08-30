@@ -32,22 +32,32 @@
     <p id="error" class="error" hidden></p>
 
     <section id="squad" class="panel on">
-      <p class="hint">Solo chi è in rosa o in prestito out. Prestito: <strong>in ←</strong> arriva da fuori, <strong>out →</strong> nostro giocatore fuori. L2B = loan to buy. Δ vs snapshot precedente.</p>
+      <p class="hint">Solo chi è in rosa o in prestito out. Prestito: <strong>in ←</strong> / <strong>out →</strong>. Filtra per ruolo (es. <strong>TS</strong>) per trovare sostituti in rosa.</p>
+      <div class="filters">
+        <label>Ruolo <select id="squad-role"><option value="">tutti</option></select></label>
+        <label class="check"><input id="squad-natural" type="checkbox" checked /> solo naturali</label>
+      </div>
+      <div id="squad-roles" class="role-chips"></div>
       <div id="squad-table" class="table-wrap"></div>
       <div id="squad-pager" class="pager"></div>
     </section>
 
     <section id="market" class="panel">
+      <p class="hint">Scegli un ruolo (es. <strong>TS = terzino sinistro</strong>): di default vedi solo <em>naturali</em>, ordinati per fit. Clicca la colonna del ruolo per riordinare.</p>
       <div class="filters">
         <label>Ruolo <select id="slot"><option value="">tutti</option></select></label>
+        <label>Fit min <input id="fitMin" type="number" value="0" min="0" max="99" title="Fit minimo sul ruolo scelto" /></label>
         <label>Campionato <select id="league"><option value="">tutti</option></select></label>
         <label>OVR min <input id="ovr" type="number" value="70" /></label>
         <label>POT min <input id="pot" type="number" value="75" /></label>
+        <label class="check"><input id="natural" type="checkbox" checked /> solo naturali</label>
+        <label class="check"><input id="primary" type="checkbox" /> solo ruolo primario</label>
         <label class="check"><input id="real" type="checkbox" checked /> solo campionati reali</label>
         <label class="check"><input id="women" type="checkbox" /> femminili</label>
         <label class="check"><input id="named" type="checkbox" checked /> solo nomi risolti</label>
         <label>Cerca <input id="q" placeholder="nome / club" /></label>
       </div>
+      <div id="market-roles" class="role-chips"></div>
       <div id="market-table" class="table-wrap"></div>
       <div id="market-pager" class="pager"></div>
     </section>

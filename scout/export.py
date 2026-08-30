@@ -8,7 +8,7 @@ import sys
 from scout.build import apply_growth, rows_from_world
 from scout.career import latest_career_save, open_career
 from scout.names import load_catalog, load_ea_names
-from scout.score import FORMATIONS
+from scout.score import FORMATIONS, ROLE_LABELS, SLOTS
 from scout.snapshot import previous_mine, save_snapshot
 
 
@@ -36,6 +36,8 @@ def build_payload(formation: str = "4-3-3") -> dict:
         "meta": meta,
         "players": players,
         "slots": list(FORMATIONS[formation]),
+        "all_roles": list(SLOTS),
+        "role_labels": dict(ROLE_LABELS),
         "formations": {k: list(v) for k, v in FORMATIONS.items()},
         "snapshot_id": sid,
     }

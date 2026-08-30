@@ -153,6 +153,8 @@ app.get("/api/meta", async (req, res) => {
     res.json({
       meta: data.meta,
       slots: data.slots,
+      all_roles: data.all_roles,
+      role_labels: data.role_labels,
       formations: data.formations,
       snapshot_id: data.snapshot_id,
     });
@@ -165,13 +167,28 @@ app.get("/api/squad", async (req, res) => {
   try {
     const data = await ensureData(false, req.query.formation);
     const slots = data.formations?.[req.query.formation] || data.slots;
+    const role = req.query.role || req.query.slot || "";
+    const natural = req.query.natural === "1";
     let rows = data.players.filter((p) => p.mine);
-    rows = sortRows(rows, req.query.sort, req.query.dir, "value");
+    if (role) {
+      if (natural) {
+        rows = rows.filter(
+          (p) => p.pos === role || (p.roles || []).includes(role)
+        );
+      } else {
+        rows = rows.filter((p) => (p.fits?.[role] || 0) > 0);
+      }
+    }
+    const fallback = role ? `fit:${role}` : "value";
+    rows = sortRows(rows, req.query.sort, req.query.dir, fallback);
     const dir = (req.query.dir || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+    const viewSlots = role ? [role, ...slots.filter((s) => s !== role)] : slots;
     res.json({
       meta: data.meta,
-      slots,
-      sort: req.query.sort || "value",
+      slots: viewSlots,
+      all_roles: data.all_roles,
+      role_labels: data.role_labels,
+      sort: req.query.sort || fallback,
       dir,
       ...paginate(rows, req.query.page, req.query.limit || 100),
     });
@@ -184,14 +201,18 @@ app.get("/api/market", async (req, res) => {
   try {
     const data = await ensureData(false, req.query.formation);
     const slots = data.formations?.[req.query.formation] || data.slots;
-    const slot = req.query.slot || "";
+    const role = req.query.role || req.query.slot || "";
     const league = req.query.league || "";
     const ovr = Number(req.query.ovr || 0);
     const pot = Number(req.query.pot || 0);
+    const fitMin = Number(req.query.fitMin || 0);
     const q = (req.query.q || "").toLowerCase();
     const real = req.query.real !== "0";
     const women = req.query.women === "1";
     const namedOnly = req.query.named !== "0";
+    // default ON when a role is selected — only natural TS/TD/… for substitutes
+    const natural = role ? req.query.natural !== "0" : req.query.natural === "1";
+    const primaryOnly = req.query.primary === "1";
 
     let rows = data.players.filter((p) => !p.mine);
     if (real) rows = rows.filter((p) => !p.special);
@@ -201,14 +222,34 @@ app.get("/api/market", async (req, res) => {
     if (ovr) rows = rows.filter((p) => (p.ovr || 0) >= ovr);
     if (pot) rows = rows.filter((p) => (p.pot || 0) >= pot);
     if (q) rows = rows.filter((p) => `${p.name} ${p.club}`.toLowerCase().includes(q));
+    if (role) {
+      if (natural) {
+        rows = rows.filter((p) =>
+          primaryOnly ? p.pos === role : p.pos === role || (p.roles || []).includes(role)
+        );
+      }
+      if (fitMin) rows = rows.filter((p) => (p.fits?.[role] || 0) >= fitMin);
+    }
 
-    const fallback = slot ? `fit:${slot}` : "ovr";
+    const fallback = role ? `fit:${role}` : "ovr";
     rows = sortRows(rows, req.query.sort, req.query.dir, fallback);
+    // Prefer primary natural role first when filtering substitutes
+    if (role && !req.query.sort) {
+      rows = rows.slice().sort((a, b) => {
+        const ap = a.pos === role ? 1 : 0;
+        const bp = b.pos === role ? 1 : 0;
+        if (bp !== ap) return bp - ap;
+        return (b.fits?.[role] || 0) - (a.fits?.[role] || 0);
+      });
+    }
 
     const leagues = [...new Set(data.players.map((p) => p.league).filter(Boolean))].sort();
+    const viewSlots = role ? [role, ...slots.filter((s) => s !== role)] : slots;
     res.json({
       meta: data.meta,
-      slots,
+      slots: viewSlots,
+      all_roles: data.all_roles,
+      role_labels: data.role_labels,
       leagues,
       sort: req.query.sort || fallback,
       dir: (req.query.dir || "desc").toLowerCase() === "asc" ? "asc" : "desc",
@@ -232,6 +273,8 @@ app.get("/api/growth", async (req, res) => {
     res.json({
       meta: data.meta,
       slots,
+      all_roles: data.all_roles,
+      role_labels: data.role_labels,
       sort,
       dir: dir.toLowerCase() === "asc" ? "asc" : "desc",
       ...paginate(rows, req.query.page, req.query.limit || 100),

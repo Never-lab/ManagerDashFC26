@@ -9,7 +9,16 @@ from pathlib import Path
 
 from scout.career import latest_career_save, open_career
 from scout.names import load_catalog, load_ea_names
-from scout.score import FORMATIONS, POS, SLOTS, all_fits, best_slot, preferred_positions
+from scout.score import (
+    FORMATIONS,
+    POS,
+    ROLE_LABELS,
+    SLOTS,
+    all_fits,
+    best_slot,
+    preferred_positions,
+    preferred_roles,
+)
 from scout.snapshot import previous_mine, save_snapshot
 from scout.value import age_from_birth, current_value, fmt_eur
 
@@ -110,6 +119,7 @@ def rows_from_world(career, world, ea: dict[str, str], catalog: dict[str, dict])
         league = leagues.get(lid or -1, {})
         fits = all_fits(p)
         pos_ids = preferred_positions(p)
+        roles = preferred_roles(p)
         c = contracts.get(pid)
         club_name = team.get("teamname") or ""
         league_name = league.get("leaguename") or ""
@@ -146,7 +156,8 @@ def rows_from_world(career, world, ea: dict[str, str], catalog: dict[str, dict])
                 "ovr": ovr,
                 "pot": pot,
                 "age": age,
-                "pos": POS.get(pos_ids[0], "?") if pos_ids else "?",
+                "pos": roles[0] if roles else (POS.get(pos_ids[0], "?") if pos_ids else "?"),
+                "roles": roles,
                 "club": club_name,
                 "club_id": club,
                 "league": league_name,

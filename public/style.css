@@ -145,6 +145,30 @@ main { padding: 0 28px 40px; }
 .filters .check { gap: 8px; }
 .filters input[type="number"] { width: 4.5rem; min-width: 0; }
 .filters #q { min-width: 10rem; }
+.role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.role-chips button {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.role-chips button:hover { color: var(--text); border-color: var(--accent2); }
+.role-chips button.on {
+  background: linear-gradient(135deg, #12c48a33, #1a7fd433);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+td.fit.focus { color: var(--accent); font-weight: 700; }
+.pill.role { margin-right: 3px; }
 
 .table-wrap { overflow: auto; max-height: 68vh; border-radius: 10px; border: 1px solid var(--line); }
 table {
