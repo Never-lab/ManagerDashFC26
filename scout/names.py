@@ -48,23 +48,35 @@ def download_names(dest: Path = CACHE) -> dict[str, str]:
     names, catalog = _from_csv(CSV_PATH)
     dest.write_text(json.dumps(names, ensure_ascii=False), encoding="utf-8")
     (DATA / "catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
+    from scout.value import set_market_from_catalog
+
+    set_market_from_catalog(catalog)
     return names
 
 
 def load_catalog() -> dict[str, dict]:
+    from scout.value import set_market_from_catalog
+
     p = DATA / "catalog.json"
     if p.exists():
-        return json.loads(p.read_text(encoding="utf-8"))
+        catalog = json.loads(p.read_text(encoding="utf-8"))
+        set_market_from_catalog(catalog)
+        return catalog
     if not CSV_PATH.exists():
         download_names()
     else:
         _, catalog = _from_csv(CSV_PATH)
         p.write_text(json.dumps(catalog), encoding="utf-8")
+        set_market_from_catalog(catalog)
         return catalog
-    return json.loads((DATA / "catalog.json").read_text(encoding="utf-8"))
+    catalog = json.loads((DATA / "catalog.json").read_text(encoding="utf-8"))
+    set_market_from_catalog(catalog)
+    return catalog
 
 
 def load_ea_names(dest: Path = CACHE) -> dict[str, str]:
     if dest.exists():
+        # Ensure market table is warm even when only names were cached.
+        load_catalog()
         return json.loads(dest.read_text(encoding="utf-8"))
     return download_names(dest)

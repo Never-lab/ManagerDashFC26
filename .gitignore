@@ -1,0 +1,7 @@
+node_modules/
+scout/data/
+scout/out/
+scout/__pycache__/
+*.db
+.DS_Store
+.env

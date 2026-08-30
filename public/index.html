@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ManagerDash FC 26</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="bg"></div>
+  <header class="top">
+    <div class="brand">
+      <span class="badge">FC 26</span>
+      <h1>ManagerDash</h1>
+    </div>
+    <div class="meta" id="meta">Caricamento save…</div>
+    <div class="actions">
+      <label class="field">Formazione
+        <select id="formation"></select>
+      </label>
+      <button type="button" id="refresh" class="btn primary">Aggiorna save</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab on" data-tab="squad">Rosa</button>
+    <button type="button" class="tab" data-tab="market">Mercato</button>
+    <button type="button" class="tab" data-tab="growth">Crescita</button>
+  </nav>
+
+  <main>
+    <p id="error" class="error" hidden></p>
+
+    <section id="squad" class="panel on">
+      <p class="hint">Solo chi è in rosa o in prestito out. Prestito: <strong>in ←</strong> arriva da fuori, <strong>out →</strong> nostro giocatore fuori. L2B = loan to buy. Δ vs snapshot precedente.</p>
+      <div id="squad-table" class="table-wrap"></div>
+      <div id="squad-pager" class="pager"></div>
+    </section>
+
+    <section id="market" class="panel">
+      <div class="filters">
+        <label>Ruolo <select id="slot"><option value="">tutti</option></select></label>
+        <label>Campionato <select id="league"><option value="">tutti</option></select></label>
+        <label>OVR min <input id="ovr" type="number" value="70" /></label>
+        <label>POT min <input id="pot" type="number" value="75" /></label>
+        <label class="check"><input id="real" type="checkbox" checked /> solo campionati reali</label>
+        <label class="check"><input id="women" type="checkbox" /> femminili</label>
+        <label class="check"><input id="named" type="checkbox" checked /> solo nomi risolti</label>
+        <label>Cerca <input id="q" placeholder="nome / club" /></label>
+      </div>
+      <div id="market-table" class="table-wrap"></div>
+      <div id="market-pager" class="pager"></div>
+    </section>
+
+    <section id="growth" class="panel">
+      <p class="hint">Confronto con l’ultimo snapshot SQLite. Al primo avvio i delta possono essere vuoti.</p>
+      <div id="growth-table" class="table-wrap"></div>
+      <div id="growth-pager" class="pager"></div>
+    </section>
+  </main>
+
+  <footer>
+    Read-only · save locale · non modifica il file career
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>
