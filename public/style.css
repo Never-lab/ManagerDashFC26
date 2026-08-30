@@ -180,6 +180,8 @@ tr:hover td { background: #182033; }
   color: var(--accent);
   font-size: 0.75rem;
 }
+.loan.in { color: var(--accent2); font-weight: 600; }
+.loan.out { color: var(--gold); font-weight: 600; }
 
 .pager {
   display: flex;

@@ -121,6 +121,23 @@ def rows_from_world(career, world, ea: dict[str, str], catalog: dict[str, dict])
         gk = bool(pos_ids and pos_ids[0] == 0)
         value = current_value(ovr, pot, age, cat, gk)
         wage = (c.get("wage") if c else None) or (cat or {}).get("wage")
+        loan_row = loans.get(pid)
+        loan_from_id = int(loan_row["teamidloanedfrom"]) if loan_row else None
+        at_club = club == club_id
+        # Out: we are the parent club; player currently elsewhere.
+        loan_out = bool(loan_row and loan_from_id == club_id and not at_club)
+        # In: at our club, but parent club is someone else.
+        loan_in = bool(loan_row and at_club and loan_from_id is not None and loan_from_id != club_id)
+        # Rosa = currently here OR our player out on loan (drop sold ghosts with stale contracts).
+        mine = at_club or loan_out
+        other_id = (loan_from_id if loan_in else club) if (loan_in or loan_out) else None
+        other_name = teams.get(other_id or -1, {}).get("teamname") or ""
+        if loan_in:
+            loan_txt = f"in ← {other_name}" if other_name else "in"
+        elif loan_out:
+            loan_txt = f"out → {other_name}" if other_name else "out"
+        else:
+            loan_txt = ""
         players.append(
             {
                 "id": pid,
@@ -136,13 +153,18 @@ def rows_from_world(career, world, ea: dict[str, str], catalog: dict[str, dict])
                 "league_id": lid,
                 "women": bool(league.get("iswomencompetition")),
                 "special": is_special(club_name, league_name),
-                "mine": club == club_id or (c is not None and int(c.get("teamid") or -1) == club_id),
+                "mine": mine,
                 "wage": wage,
                 "value": value,
                 "value_txt": fmt_eur(value),
                 "role": ROLE.get(c.get("playerrole"), "") if c else "",
                 "months": c.get("duration_months") if c else None,
-                "loan": pid in loans,
+                "loan": bool(loan_in or loan_out),
+                "loan_in": loan_in,
+                "loan_out": loan_out,
+                "loan_other": other_name,
+                "loan_txt": loan_txt,
+                "loan_buy": bool(loan_row and loan_row.get("isloantobuy")),
                 "fits": fits,
                 "best": best_slot(p),
                 "rank_ovr": (ranking.get(pid) or {}).get("curroverall"),

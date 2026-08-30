@@ -114,11 +114,13 @@ async function loadSquad() {
   renderMeta(data.meta);
   fillSlots(data.slots);
   $("squad-table").innerHTML = tableHtml(data.rows, data.slots, {
-    head: "<th>ΔOVR</th><th>Ruolo</th><th>Stipendio</th>",
+    head: "<th>Prestito</th><th>ΔOVR</th><th>Ruolo</th><th>Stipendio</th>",
     cell: (p) =>
-      `<td class="${dClass(p.d_ovr)}">${delta(p.d_ovr)}</td><td>${esc(p.role)}</td><td>${nz(
-        p.wage
-      )}</td>`,
+      `<td class="loan ${p.loan_in ? "in" : p.loan_out ? "out" : ""}">${esc(
+        p.loan_txt || ""
+      )}${p.loan_buy ? ' <span class="pill">L2B</span>' : ""}</td><td class="${dClass(
+        p.d_ovr
+      )}">${delta(p.d_ovr)}</td><td>${esc(p.role)}</td><td>${nz(p.wage)}</td>`,
   });
   $("squad-pager").innerHTML = pagerHtml("squad", data.page, data.pages, data.total);
 }
@@ -148,7 +150,11 @@ async function loadMarket() {
       data.leagues.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
     if ([...leagueSel.options].some((o) => o.value === cur)) leagueSel.value = cur;
   }
-  $("market-table").innerHTML = tableHtml(data.rows, data.slots);
+  $("market-table").innerHTML = tableHtml(data.rows, data.slots, {
+    head: "<th>Prestito</th>",
+    cell: (p) =>
+      `<td class="loan ${p.loan_in ? "in" : p.loan_out ? "out" : ""}">${esc(p.loan_txt || "")}</td>`,
+  });
   $("market-pager").innerHTML = pagerHtml("market", data.page, data.pages, data.total);
 }
 
